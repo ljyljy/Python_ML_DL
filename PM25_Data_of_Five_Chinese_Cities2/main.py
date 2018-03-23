@@ -199,7 +199,8 @@ def main():
 
     # 分组操作后day_stats的索引为层级索引['city', 'date']，
     # 为方便后续分析，将层级索引转换为普通列
-    # day_stats = day_stats.reset_index(inplace=True) ❤️
+    # (×) day_stats = day_stats.reset_index(inplace=True) ×
+    # (↑)❤️用了inplace=True，就没有返回值了，不可以再用自身去接收
     day_stats.reset_index(inplace=True)
 
 
