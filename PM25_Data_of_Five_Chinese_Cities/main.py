@@ -39,7 +39,9 @@ def load_data(data_file, usecols):
             # 注意csv模块读入的数据全部为字符串类型
             for col in usecols:
                 str_val = row[col]
-                # 数据类型转换为float，如果是'NA'，则返回nan
+
+                # 条件表达式的使用
+                # 数据类型转换为float，如果是'NA'，则返回nan(便于后续判断)
                 row_data.append(float(str_val) if str_val != 'NA' else np.nan)
 
             # 如果行数据中不包含nan才保存该行记录
@@ -68,19 +70,19 @@ def get_polluted_perc(data_arr):
 
     """
     # 将每个区的PM值平均后作为该城市小时的PM值
-    # 按行取平均值                                # axis=1 表示行(操作数据为每行的数据)
+    # 按行取平均值                                # axis=1 表示行/横向(操作数据为每行的数据)
     hour_val = np.mean(data_arr[:, 2:], axis=1) # ':'表示所有行; '2:'表示从第2列~最后(列从0起)(即：3个不同地域的PM值)
-    # 总小时数
+    # 总小时个数(一行是数据是每小时的PM2.5值, 故下句统计总共记录PM2.5的小时数)
     n_hours = hour_val.shape[0] # shape[0]: 第一维度x的长度, 即行的总数！  shape[1]: 第二维度y的长度！
-    # 重度污染小时数
+    # 重度污染小时个数(一行是数据是每小时的PM2.5值！！！)
     n_heavy_hours = hour_val[hour_val > 150].shape[0]
-    # 中度污染小时数
+    # 中度污染小时个数
     n_medium_hours = hour_val[(hour_val > 75) & (hour_val <= 150)].shape[0]
-    # 轻度污染小时数
+    # 轻度污染小时的个数
     n_light_hours = hour_val[(hour_val > 35) & (hour_val <= 75)].shape[0]
-    # 优良空气小时数
+    # 优良空气小时的个数
     n_good_hours = hour_val[hour_val <= 35].shape[0]
-
+    # 得到某地区x度污染/优良空气(小时数)的占比
     polluted_perc_list = [n_heavy_hours / n_hours, n_medium_hours / n_hours,
                           n_light_hours / n_hours, n_good_hours / n_hours]
     return polluted_perc_list
@@ -97,18 +99,22 @@ def get_avg_pm_per_month(data_arr):
     """
     results = []
 
-    # 获取年份
-    years = np.unique(data_arr[:, 0]) # [:, 0]表示提取data_arr中所有行,第0列数据
+    # 获取年份 mnp.unique():获取不重复的数据
+    years = np.unique(data_arr[:, 0]) # [:, 0]表示提取data_arr中所有行,第0列数据('year')
     for year in years:
-        # 获取当前遍历年份year的所有数据
-        year_data_arr = data_arr[data_arr[:, 0] == year]
-        # 获取数据的月份
-        month_list = np.unique(year_data_arr[:, 1])
 
+        # NumPy中的条件索引
+        # 获取当前遍历年份year的所有数据
+        # data_arr[:, 0] == year 表示判断data_arr中的第0列中的数据是否等于year，如果是返回True，否则为False，即布尔值数组
+        # 然后将上述结果作为mask作用于原始数组data_arr中，过滤出符合条件的数据
+        year_data_arr = data_arr[data_arr[:, 0] == year] # bool数组，类似于"图层蒙板"。获取data_arr中所有符合要求的数据(不仅仅是year，还有year对应的一系列数据)
+
+        # 获取数据的月份
+        month_list = np.unique(year_data_arr[:, 1]) # unique获得符合要求的数据相应的月份(不重复)（因为选中的数据中肯定有重复的月份,即第1列数据(从0起)。故用unique去重）
         for month in month_list:
-            # 获取月份的所有数据
-            month_data_arr = year_data_arr[year_data_arr[:, 1] == month]
-            # 计算当前月份PM的均值
+            # 获取符合要求的月份的所有数据               # [:, 1]表示遍历范围：所有行,第1列(从0起)
+            month_data_arr = year_data_arr[year_data_arr[:, 1] == month] # bool数组。获取year_data_arr中所有符合要求的数据(不仅仅是month，还有month对应的一系列数据)
+            # 计算当前月份PM的均值（np.mean()）
             mean_vals = np.mean(month_data_arr[:, 2:], axis=0).tolist()
 
             # 格式化字符串
@@ -134,7 +140,7 @@ def save_stats_to_csv(results_arr, save_file, headers):
             writer.writerow(row)
 
 
-def main():
+def main01():
     """
         主函数
     """
@@ -144,6 +150,10 @@ def main():
     for city_name, (filename, cols) in data_config_dict.items():
         # === Step 1+2. 数据获取 + 数据处理 ===
         data_file = os.path.join(dataset_path, filename)   # common_cols有year, month
+
+        # 列表推导式的使用
+        # ['PM_' + col for col in cols]是将字符串'PM_'和区的名称进行拼接，返回以'PM_'开头的字符串list
+        # list相加，返回需要使用的列
         usecols = common_cols + ['PM_' + col for col in cols] # 说明只提取每行数据中的 year, month, config中的字典中的各个cols
         data_arr = load_data(data_file, usecols)
 
@@ -175,11 +185,11 @@ def main():
     save_file = os.path.join(output_path, 'polluted_percentage.csv')
     with open(save_file, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(['city', 'heavy', 'medium', 'light', 'good'])
+        writer.writerow(['city', 'heavy', 'medium', 'light', 'good']) # 写在同一行
         for row in polluted_state_list:
             writer.writerow(row)
     print('污染状态结果已保存至{}'.format(save_file))
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == '__main01__':
+    main01()
